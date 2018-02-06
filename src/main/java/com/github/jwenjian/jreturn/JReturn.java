@@ -1,77 +1,124 @@
 package com.github.jwenjian.jreturn;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class JReturn {
 
-    public static class ValueWrapper {
+    public static class R {
 
-        private boolean singleMode;
+        private boolean single;
 
-        private Object singleValue;
+        private Object value;
 
-        private List<Object> values;
+        private Set<Object> values;
 
         private Map<Object, Object> keyValues;
 
-        private ValueWrapper(final boolean singleMode) {
-            this.singleMode = singleMode;
+        public <V> V unwrap(final Class<V> vClass) {
+            Objects.requireNonNull(vClass, "Target class cannot be null");
+
+            if (single) {
+                return vClass.cast(value);
+            }
+            if (values != null) {
+                for (final Object o : values) {
+                    if (vClass.isAssignableFrom(o.getClass())) {
+                        return vClass.cast(o);
+                    }
+                }
+                throw new RuntimeException(String.format("Returned value with target class = %s not found", vClass.getName()));
+            }
+
+            // IMPOSSIBLE
+            throw new RuntimeException("IMPOSSIBLE STATE");
         }
 
-        public ValueWrapper wrap(Object value) {
-            if (singleMode) {
-                singleValue = value;
-                return this;
+        public <V> V unwrap(final Object key, final Class<V> vClass) {
+            Objects.requireNonNull(vClass, "Target class cannot be null");
+            if (single) {
+                return vClass.cast(value);
             }
-            if (values == null) {
-                values = new ArrayList<Object>();
+
+            Objects.requireNonNull(key, "key cannot be null");
+
+            if (keyValues != null) {
+                if (keyValues.containsKey(key)) {
+                    return vClass.cast(keyValues.get(key));
+                }
+                throw new RuntimeException(String.format("Returned value with key = %s not found", vClass.getName()));
             }
-            values.add(value);
+
+            // IMPOSSIBLE
+            throw new RuntimeException("IMPOSSIBLE STATE");
+        }
+
+        private R() {}
+
+        private static R newInstanceWithSingleValue(final Object value) {
+            final R r = new R();
+            r.single = true;
+            r.value = value;
+            return r;
+        }
+
+        private static R newInstanceWithMultiValues(final Object... inputs) {
+            final R r = new R();
+            r.single = false;
+            r.values = new HashSet<>();
+            if (inputs != null && inputs.length > 0) {
+                r.values.addAll(Arrays.asList(inputs));
+            }
+            return r;
+        }
+
+        private static R newInstanceWithMultiKeyValuePair(final Map<Object, Object> keyPair) {
+            final R r = new R();
+            r.single = false;
+            r.keyValues = new HashMap<>();
+            r.keyValues.putAll(keyPair);
+            return r;
+        }
+    }
+
+    public static class InnerMap {
+
+        private Map<Object, Object> keyPair;
+
+        public InnerMap put(Object key, Object value) {
+            if (keyPair == null) {
+                keyPair = new HashMap<>();
+            }
+            keyPair.put(key, value);
             return this;
         }
 
-        public ValueWrapper wrapWithKey(Object key, Object value) {
-            if (singleMode) {
-                singleValue = value;
-                return this;
+        public InnerMap putAll(final Map<Object, Object> values) {
+            if (keyPair == null) {
+                keyPair = new HashMap<>();
             }
-            if (keyValues == null) {
-                keyValues = new HashMap<Object, Object>();
-            }
-            keyValues.put(key, value);
+            keyPair.putAll(values);
             return this;
         }
 
-        public Object getSingleValue() {
-            return singleValue;
+        public R toR() {
+            return R.newInstanceWithMultiKeyValuePair(this.keyPair);
         }
 
-        public <V> V getSingleValue(Class<V> vClass) {
-            if (vClass == null) {
-                throw new IllegalArgumentException("class of single value cannot be null!");
-            }
-            if (singleValue == null) {
-                return null;
-            }
-            if (!vClass.isAssignableFrom(singleValue.getClass())) {
-                throw new ClassCastException(String.format("%s cannot be cast to %s!", singleValue.getClass().getName(), vClass.getName()));
-            }
-            return vClass.cast(singleValue);
-        }
-
+        private InnerMap() {}
     }
 
-    public static ValueWrapper withSingleValue() {
-        final ValueWrapper singleValueWrapper = new ValueWrapper(Boolean.TRUE);
-        return singleValueWrapper;
+    public static R single(final Object value) {
+        return R.newInstanceWithSingleValue(value);
     }
 
-    public static ValueWrapper withMultiValue() {
-        final ValueWrapper multiValueWrapper = new ValueWrapper(Boolean.FALSE);
-        return multiValueWrapper;
+    public static R multi(final Object... values) {
+        return R.newInstanceWithMultiValues(values);
+    }
+
+    public static InnerMap withKey(final Object firstKey, final Object firstValue) {
+        final InnerMap innerMap = new InnerMap();
+        innerMap.put(firstKey, firstValue);
+        return innerMap;
     }
 
     private JReturn() {}

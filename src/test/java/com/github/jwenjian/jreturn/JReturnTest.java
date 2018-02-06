@@ -9,20 +9,29 @@ public class JReturnTest {
     public void testSingleValue() {
 
         try {
-            JReturn.withSingleValue().wrap("Hello, JReturn").getSingleValue(null);
+            JReturn.single("Hello, JReturn").unwrap(null);
         } catch (Exception e) {
             Assert.assertTrue(e instanceof IllegalArgumentException);
             Assert.assertEquals(e.getMessage(), "class of single value cannot be null!");
         }
 
         try {
-            JReturn.withSingleValue().wrap("Hello, JReturn").getSingleValue(Integer.class);
+            JReturn.single("Hello, JReturn").unwrap(Integer.class);
         } catch (Exception e) {
             Assert.assertEquals(e.getMessage(), "java.lang.String cannot be cast to java.lang.Integer!");
         }
 
-        String singleValue = JReturn.withSingleValue().wrap("Hello, JReturn").getSingleValue(String.class);
+        String singleValue = JReturn.single("Hello, JReturn").unwrap(String.class);
         Assert.assertEquals("Hello, JReturn", singleValue);
+
+    }
+
+    @Test
+    public void testMultiWithKeyPair() {
+        JReturn.R r = JReturn.withKey("test", "value").toR();
+        String result = r.unwrap("test", String.class);
+
+        Assert.assertTrue("value".equals(result));
 
     }
 }
